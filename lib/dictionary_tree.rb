@@ -5,60 +5,81 @@ class DictionaryTree
 attr_reader :root, :num_letters, :num_words, :depth
 
   def initialize(entries=[])
-    raise ArgumentError unless entries.is_a?(Array)
-    @root = LetterNode.new(nil, nil, [], nil, 1)
+    @root = LetterNode.new(nil, nil, [], nil, 0)
     @num_letters = 0
     @num_words = 0
+    @depth = 0
     entries.each do |entry|
       insert_word(entry[0], entry[1])
     end
-    @depth = 1
   end
 
   def insert_word(word, definition)
-    raise ArgumentError if !word.is_a?(String) && !definition.is_a?(String)
-    raise ArgumentError if word == nil || definition == nil
-
     current_node = @root
-    word_array = word.split("")
-    max_index = word_array.length - 1
-
-    word_array.each_with_index do |letter, index|
-      child = current_node.children.select { |node| letter == node.letter }
-      current_node = child[0] unless child == []
-
-      if index == max_index
-        current_node.children << LetterNode.new(letter, definition, [], current_node, index + 2)
-        @num_words += 1
+    depth = 0
+    word.chars.each do |letter|
+      child = current_node.children.select { |n| n.letter == letter }
+      if child == []
+        current_node.children << LetterNode.new(letter, nil, [], current_node, current_node.depth + 1)
         @num_letters += 1
+        current_node = current_node.children.last
       else
-        current_node.children << LetterNode.new(letter, nil, [], current_node, index + 2)
-        @num_letters += 1
+        current_node = child[0]
       end
-      current_node = current_node.children.last
     end
-
+    @depth = current_node.depth if current_node.depth > @depth
+    current_node.definition = definition
+    @num_words += 1
   end
 
   def definition_of(word)
-    raise ArgumentError unless word.is_a?(String)
-
     current_node = @root
-    word_array = word.split("")
-    max_index = word_array.length - 1
+    word.chars.each do |letter|
+      child = current_node.children.select { |n| n.letter == letter }
+      if child != []
+        current_node = child[0]
+      else
+        return nil
+      end
+    end
+    return current_node.definition
+  end
 
-    word_array.each_with_index do |letter, index|
-      child = current_node.children.select { |node| letter == node.letter }
-      current_node = child[0] unless child == []
-
-      if index ==  max_index
-
+  def remove_word(word)
+    current_node = @root
+    word.chars.each do |letter|
+      child = current_node.children.select { |n| n.letter == letter }
+      current_node = child[0] if child != []
+    end
+    if current_node.definition
+      current_node.definition = nil
+      @num_words -= 1
+      if current_node.children.empty?
+        until current_node.parent == @root || current_node.parent.children.length > 1 || current_node.parent.definition != nil
+          current_node = current_node.parent
+          @num_letters -= 1
+        end
+        @num_letters -= 1
+        current_node.parent.children.delete(current_node)
       end
     end
     return nil
   end
 
-  def remove_word(word)
-    raise ArgumentError unless word.is_a?(String)
+  def depth
+    depth = 0
+    current_node = @root
+    queue = []
+    queue << current_node
+    until queue.empty?
+      first = queue.shift
+      depth = first.depth if first.depth > depth
+      if !first.children.empty?
+        first.children.each do |child|
+          queue << child
+        end
+      end
+    end
+    return depth
   end
 end
